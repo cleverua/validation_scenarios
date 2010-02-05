@@ -1,0 +1,58 @@
+===Purpose
+
+This is Rails plugin that enables validation scenarios support in Active Record models. (for Rails 2.0.1) 
+
+===Installation
+
+ruby ./script/plugin install git://github.com/cleverua/validation_scenarios.git
+
+===Usage
+
+First, in your models, you declare validation scenarios details using when_scenario_is method. 
+In the following example, both User and Address models have user_registration and profile_update 
+scenarios declared:
+
+  class User < ActiveRecord::Base
+    has_one :address
+    
+    when_scenario_is :user_registration do |this|
+      this.validates_presence_of :email
+      this.validates_associated :address
+    end
+
+    when_scenario_is :profile_update do |this|
+      this.validates_presence_of :first_name :unless => :something_here
+    end 
+  end
+
+  class Address < ActiveRecord::Base 
+    belongs_to :user
+    
+    when_scenario_is :user_registration do |this|
+      this.validates_numericality_of :postcode
+    end
+   
+    when_scenario_is :profile_update do |this|
+      this.validates_presence_of :street_address_1
+      this.validates_presence_of :city
+    end
+  end
+
+
+Then, when you want to process, for example, the user_registration scenario - you just start it using: 
+ActiveRecord::Base.with_validation_scenario method. In the following example it validates User object 
+per rules declared for user_registration scenario.
+
+Please also note that associated Address instance is also aware that the current validation scenario 
+is user_registration. That's why the following test passes:
+
+  ActiveRecord::Base.with_validation_scenario(:user_registration) do
+    user = User.new(:email => "foo@bar.baz")
+    user.build_address(:postcode => 'intentionally_not_numerical')
+    assert !user.save
+    assert user.errors.invalid?(:address)
+    assert_match(/is not a number/i, user.address.errors.on(:postcode))
+  end
+
+
+
